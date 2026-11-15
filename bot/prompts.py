@@ -31,7 +31,7 @@ Extract the following information and return it as STRICT JSON only
     {"type": "pipe", "wall": "north", "position_mm": 600},
     {"type": "column", "wall": "west", "position_mm": 1800}
   ],
-  "notes": "free text summary in Persian"
+  "notes": "short free text summary in English (it will be printed on the drawing sheet)"
 }
 
 Rules:

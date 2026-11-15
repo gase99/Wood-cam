@@ -31,8 +31,8 @@ DEMO_ANALYSIS: dict[str, Any] = {
         {"type": "stove", "wall": "north", "position_mm": 2400},
         {"type": "fridge", "wall": "west", "position_mm": 900},
     ],
-    "notes": "حالت نمایشی: این داده‌ی نمونه بر اساس نقشه‌ی مرجع F204 است. "
-    "برای تحلیل واقعی، AI_API_KEY را تنظیم کنید.",
+    "notes": "DEMO MODE: sample data based on reference drawing F204. "
+    "Set AI_API_KEY for real analysis.",
 }
 
 
