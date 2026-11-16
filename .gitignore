@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.env
+.env.local
+.venv/
+.pytest_cache/
+.DS_Store
+
+# Telegram Serverless CLI — machine-local credentials & state. NEVER commit.
+.tgcloud/
+node_modules/
+dist/
+
+# Runtime secret: deployed with the bot, but must never enter Git.
+tgcloud/lib/secrets.js
