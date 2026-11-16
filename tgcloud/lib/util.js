@@ -19,6 +19,18 @@ export function base64Encode(bytes) {
   return out;
 }
 
+// --- تشخیص نوع تصویر از بایت‌ها (tgcloud فاقد fs/Buffer است) ---
+// Gemini inline_data به mime_type درست نیاز دارد؛ عکس تلگرام معمولاً JPEG است،
+// ولی سندهای PNG/WebP هم پذیرفته میشوند.
+export function detectImageMimeType(bytes) {
+  const b = bytes ?? new Uint8Array();
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return 'image/jpeg';
+  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return 'image/png';
+  if (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 &&
+      b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50) return 'image/webp';
+  return 'image/jpeg'; // پیشفرض امن برای عکسهای فشردهشده‌ی تلگرام
+}
+
 // --- ارقام فارسی/عربی به لاتین ---
 const FA_DIGITS = { '۰': '0', '۱': '1', '۲': '2', '۳': '3', '۴': '4', '۵': '5', '۶': '6', '۷': '7', '۸': '8', '۹': '9', '٠': '0', '١': '1', '٢': '2', '٣': '3', '٤': '4', '٥': '5', '٦': '6', '٧': '7', '٨': '8', '٩': '9' };
 

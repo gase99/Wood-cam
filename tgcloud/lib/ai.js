@@ -1,8 +1,10 @@
 // ai.js — تحلیل تصویر اسکیس با مدل بینا (Vision AI) از طریق fetch خروجی SDK.
-// `fetchFn` تزریق می‌شود تا ماژول قابل تست بماند.
+// پیشفرض: REST بومی Gemini با کلید x-goog-api-key و responseMimeType=application/json.
+// حالت جایگزین: هر API سازگار با OpenAI (provider='openai' در config.js).
+// `fetchFn` تزریق می‌شود تا ماژول بدون SDK واقعی قابل تست بماند.
 
 import { config } from './config.js';
-import { base64Encode, extractJson } from './util.js';
+import { base64Encode, detectImageMimeType, extractJson } from './util.js';
 
 export const SYSTEM_PROMPT = `You are an expert interior architect and kitchen cabinet designer.
 You are given a photo of a hand-drawn kitchen sketch / floor plan (possibly with
@@ -52,7 +54,7 @@ export const DEMO_ANALYSIS = {
     { type: 'stove', wall: 'north', position_mm: 2400 },
     { type: 'fridge', wall: 'west', position_mm: 900 },
   ],
-  notes: 'DEMO MODE: F204 sample data. Set aiApiKey in config.js for real analysis.',
+  notes: 'DEMO MODE: F204 sample data. Set GEMINI_API_KEY for real analysis.',
 };
 
 function normalize(data) {
@@ -73,20 +75,56 @@ function normalize(data) {
   return out;
 }
 
-/**
- * تحلیل عکس اسکیس (بایت‌های تصویر) و برگرداندن دیکشنری ابعاد.
- * @param {Uint8Array} imageBytes
- * @param {Function} fetchFn — fetch خروجی SDK
- */
-export async function analyzeImage(imageBytes, fetchFn) {
-  // بررسی پویا (نه const زمان import) تا در تست‌ها بتوان کلید را موقتاً تنظیم کرد.
-  if (!config.aiApiKey) {
-    return JSON.parse(JSON.stringify(DEMO_ANALYSIS)); // کپی عمیق حالت نمایشی
-  }
+/** پاسخ متنی را از ساختار پاسخ Gemini استخراج می‌کند. */
+function geminiText(data) {
+  const parts = data?.candidates?.[0]?.content?.parts;
+  if (!Array.isArray(parts)) return '';
+  return parts.map((p) => (typeof p?.text === 'string' ? p.text : '')).join('');
+}
 
-  const b64 = base64Encode(imageBytes);
+/** فراخوانی REST بومی Gemini: generateContent + inline_data + JSON ساخت‌یافته. */
+async function callGemini(imageBytes, fetchFn, b64) {
+  const { baseUrl, model } = config.gemini;
+  const url = `${baseUrl.replace(/\/$/, '')}/models/${encodeURIComponent(model)}:generateContent`;
   const payload = {
-    model: config.aiModel,
+    systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+    contents: [{
+      role: 'user',
+      parts: [
+        { text: USER_PROMPT },
+        { inline_data: { mime_type: detectImageMimeType(imageBytes), data: b64 } },
+      ],
+    }],
+    generationConfig: {
+      responseMimeType: 'application/json',
+      temperature: 0.1,
+      maxOutputTokens: 1500,
+    },
+  };
+
+  const res = await fetchFn(url, {
+    method: 'POST',
+    headers: {
+      'x-goog-api-key': config.aiApiKey,
+      'Content-Type': 'application/json',
+    },
+    body: fetchFn.body.json(payload),
+  });
+  if (!res.ok) throw new Error(`Gemini API error: HTTP ${res.status}`);
+  const data = await res.json();
+  const content = geminiText(data);
+  if (!content) {
+    const reason = data?.candidates?.[0]?.finishReason ?? data?.error?.message ?? 'empty response';
+    throw new Error(`Gemini returned no text (${reason}).`);
+  }
+  return content;
+}
+
+/** فراخوانی API سازگار با OpenAI (حالت جایگزین). */
+async function callOpenAICompatible(fetchFn, b64) {
+  const { baseUrl, model } = config.openai;
+  const payload = {
+    model,
     messages: [
       { role: 'system', content: SYSTEM_PROMPT },
       {
@@ -102,7 +140,7 @@ export async function analyzeImage(imageBytes, fetchFn) {
     max_tokens: 1500,
   };
 
-  const res = await fetchFn(`${config.aiBaseUrl.replace(/\/$/, '')}/chat/completions`, {
+  const res = await fetchFn(`${baseUrl.replace(/\/$/, '')}/chat/completions`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${config.aiApiKey}`,
@@ -112,6 +150,24 @@ export async function analyzeImage(imageBytes, fetchFn) {
   });
   if (!res.ok) throw new Error(`AI API error: HTTP ${res.status}`);
   const data = await res.json();
-  const content = data.choices[0].message.content;
+  return data?.choices?.[0]?.message?.content ?? '';
+}
+
+/**
+ * تحلیل عکس اسکیس (بایتهای تصویر) و برگرداندن دیکشنری ابعاد.
+ * @param {Uint8Array} imageBytes
+ * @param {Function} fetchFn — fetch خروجی SDK
+ */
+export async function analyzeImage(imageBytes, fetchFn) {
+  // بررسی پویا (نه const زمان import) تا در تستها بتوان کلید/پرووایدر را تغییر داد.
+  if (!config.aiApiKey) {
+    return JSON.parse(JSON.stringify(DEMO_ANALYSIS)); // کپی عمیق حالت نمایشی
+  }
+
+  const b64 = base64Encode(imageBytes);
+  const content = config.provider === 'openai'
+    ? await callOpenAICompatible(fetchFn, b64)
+    : await callGemini(imageBytes, fetchFn, b64);
+
   return normalize(extractJson(content));
 }

@@ -1,7 +1,7 @@
 // تست ماشین وضعیت گفتگو با API و Store تزریق‌شده (بدون نیاز به SDK واقعی)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { handleMessage, handleCallback, formatAnalysis, WELCOME, HELP } from '../tgcloud/lib/bot.js';
+import { handleMessage, handleCallback, formatAnalysis, aiStatus, WELCOME, HELP } from '../tgcloud/lib/bot.js';
 import { DEMO_ANALYSIS } from '../tgcloud/lib/ai.js';
 
 class FakeInputFile {
@@ -56,6 +56,18 @@ test('/start و /help و /cancel', async () => {
   assert.ok(texts(api)[2].includes('لغو'));
 });
 
+test('/ai — وضعیت مدل را بدون افشای کلید نشان میدهد', async () => {
+  const api = makeApi();
+  const store = makeStore();
+  await handleMessage(msg({ text: '/ai' }), { api, store, fetch: () => {} });
+  const status = texts(api)[0];
+  assert.ok(status.includes('Gemini'));
+  assert.ok(status.includes('gemini-3.8-flash'));
+  assert.ok(status.includes('کلید API'));
+  assert.ok(!status.includes('undefined'));
+  assert.equal(aiStatus().includes('test-key'), false);
+});
+
 test('دریافت عکس → تحلیل → نمایش ابعاد و دکمه‌ی تایید', async () => {
   const api = makeApi();
   const store = makeStore();
@@ -72,7 +84,7 @@ test('دریافت عکس → تحلیل → نمایش ابعاد و دکمه�
   assert.deepEqual(store.data.get(7).analysis.room, DEMO_ANALYSIS.room);
 });
 
-test('عکس ارسالشده به صورت سند (document) هم پذیرفته میشود', async () => {
+test('عکس ارسالشده به صورت سند (document) هم پذیرفته می‌شود', async () => {
   const api = makeApi();
   const store = makeStore();
   await handleMessage(msg({ document: { file_id: 'doc-sketch', mime_type: 'image/png', file_name: 'sketch.png' } }),

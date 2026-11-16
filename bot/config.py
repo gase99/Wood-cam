@@ -16,7 +16,8 @@ class Config:
     telegram_bot_token: str = ""
     # (اختیاری) سکرت وب‌هوک برای اعتبارسنجی درخواست‌ها
     webhook_secret: str = ""
-    # --- تنظیمات مدل هوش مصنوعی (سازگار با API اوپن‌ای) ---
+    # --- تنظیمات مدل هوش مصنوعی (سازگار با OpenAI؛ Gemini هم از لایه‌ی
+    #     OpenAI-compatible با AI_BASE_URL=.../v1beta/openai پشتیبانی می‌شود) ---
     ai_api_key: str = ""
     ai_base_url: str = "https://api.openai.com/v1"
     ai_model: str = "gpt-4o-mini"

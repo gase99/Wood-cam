@@ -1,7 +1,7 @@
 // تست توابع کمکی (Node.js داخلی — بدون وابستگی)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { base64Encode, parseDimensions, escapeXml, extractJson, toLatinDigits } from '../tgcloud/lib/util.js';
+import { base64Encode, detectImageMimeType, parseDimensions, escapeXml, extractJson, toLatinDigits } from '../tgcloud/lib/util.js';
 
 test('base64Encode — بردارهای شناخته‌شده', () => {
   assert.equal(base64Encode(new Uint8Array([])), '');
@@ -11,6 +11,15 @@ test('base64Encode — بردارهای شناخته‌شده', () => {
   assert.equal(base64Encode(new TextEncoder().encode('foobar')), 'Zm9vYmFy');
   // بایت‌های باینری
   assert.equal(base64Encode(new Uint8Array([0xff, 0xfe, 0xfd])), '//79');
+});
+
+test('detectImageMimeType — JPEG/PNG/WebP و پیشفرض', () => {
+  assert.equal(detectImageMimeType(new Uint8Array([0xff, 0xd8, 0xff, 0xe0])), 'image/jpeg');
+  assert.equal(detectImageMimeType(new Uint8Array([0x89, 0x50, 0x4e, 0x47])), 'image/png');
+  const webp = new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50]);
+  assert.equal(detectImageMimeType(webp), 'image/webp');
+  assert.equal(detectImageMimeType(new Uint8Array([1, 2, 3])), 'image/jpeg');
+  assert.equal(detectImageMimeType(new Uint8Array()), 'image/jpeg');
 });
 
 test('parseDimensions — ابعاد لاتین و فارسی', () => {

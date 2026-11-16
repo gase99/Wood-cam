@@ -3,7 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "prepare": "node scripts/prepare-secrets.mjs",
+    "pretest": "node scripts/prepare-secrets.mjs",
     "test": "node --test tests-js/*.test.js",
+    "predeploy": "node scripts/prepare-secrets.mjs",
     "deploy": "tgcloud push",
     "status": "tgcloud status",
     "run": "tgcloud run",

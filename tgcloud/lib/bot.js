@@ -2,6 +2,7 @@
 // وابستگی‌ها (api, store, fetch) تزریق می‌شوند؛ handlers فقط SDK را پاس می‌دهند.
 
 import { analyzeImage } from './ai.js';
+import { config } from './config.js';
 import { renderPlanSvg } from './planner.js';
 import { parseDimensions } from './util.js';
 
@@ -20,7 +21,7 @@ export const HELP =
   '۲) ربات ابعاد استخراج‌شده را نمایش می‌دهد؛ اگر درست بود «✅ تایید و ترسیم» را بزنید.\n' +
   '۳) شیت فنی شامل پلان کف، نماهای روبه‌رو، پلان کابینت‌های بالا و پایین و کادر عنوان برایتان ارسال می‌شود.\n\n' +
   '✏️ برای اصلاح: عکس جدید بفرستید یا ابعاد را متنی بنویسید؛ مثلاً: 3000x3600\n' +
-  '🔄 /cancel برای شروع از اول';
+  '🤖 /ai وضعیت مدل هوش مصنوعی | 🔄 /cancel شروع از اول';
 
 const ANALYZING = '🔍 در حال تحلیل عکس با هوش مصنوعی... لطفاً صبر کنید.';
 const DRAWING = '✏️ در حال ترسیم شیت فنی...';
@@ -40,6 +41,19 @@ const KB_NEW = {
     { text: '🔄 نقشه‌ی جدید', callback_data: 'new_plan' },
   ]],
 };
+
+/** وضعیت مدل را بدون افشای کلید نمایش میدهد. */
+export function aiStatus() {
+  const key = config.aiApiKey;
+  const model = config.provider === 'openai' ? config.openai.model : config.gemini.model;
+  const provider = config.provider === 'openai' ? 'OpenAI-compatible' : 'Gemini (native REST)';
+  const masked = key ? `✅ تنظیم شده (…${key.slice(-4)})` : '❌ تنظیم نشده — حالت نمایشی F204';
+  return '🤖 تنظیمات هوش مصنوعی:\n\n' +
+    `• ارائهدهنده: ${provider}\n` +
+    `• مدل: ${model}\n` +
+    `• کلید API: ${masked}\n\n` +
+    'برای فعالسازی Gemini: GEMINI_API_KEY=... npm run deploy';
+}
 
 export function formatAnalysis(analysis) {
   const room = analysis?.room ?? {};
@@ -96,6 +110,10 @@ export async function handleMessage(message, { api, store, fetch: fetchFn }) {
   }
   if (text.startsWith('/help')) {
     await api.sendMessage({ chat_id: chatId, text: HELP });
+    return;
+  }
+  if (text.startsWith('/ai')) {
+    await api.sendMessage({ chat_id: chatId, text: aiStatus() });
     return;
   }
   if (text.startsWith('/cancel')) {

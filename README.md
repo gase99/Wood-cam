@@ -10,7 +10,7 @@
 | پیاده‌سازی | محل اجرا | وضعیت |
 | --- | --- | --- |
 | **JavaScript / tgcloud** | [Telegram Serverless](https://core.telegram.org/bots/serverless) (پیشنهادی، بدون سرور و بدون توکن ربات در کد) | `tgcloud/` |
-| Python | اجرای محلی (Long Polling) یا Vercel/Netlify (وبهوک) | `bot/`, `api/webhook.py` |
+| Python | اجرای محلی (Long Polling) یا Vercel/Netlify (وب‌هوک) | `bot/`, `api/webhook.py` |
 
 ![پلان نمونه — نسخه‌ی پایتون](assets/sample_plan.png)
 
@@ -45,20 +45,25 @@ Wood-cam/
 │   │   ├── message.js             # آپدیت message (عکس، دستورها، اصلاح متنی)
 │   │   └── callback_query.js      # دکمه‌های تایید / اصلاح / نقشه‌ی جدید
 │   └── lib/
-│       ├── config.js              # تنظیمات (بدون متغیر محیطی!)
-│       ├── ai.js                  # تحلیل تصویر با fetch خروجی SDK + حالت نمایشی
+│       ├── config.js              # پرووایدر/مدل (بدون متغیر محیطی)
+│       ├── secrets.js             # کلید Gemini — gitignored ولی دیپلوی می‌شود
+│       ├── ai.js                  # REST بومی Gemini (+ حالت OpenAI و نمایشی)
 │       ├── bot.js                 # ماشین وضعیت گفتگو + متن‌های فارسی
 │       ├── store.js               # دسترسی به db با تزریق وابستگی
 │       ├── planner.js             # موتور ترسیم شیت فنی → SVG
-│       └── util.js                # Base64 دستی، ارقام فارسی، پارس ابعاد، escape XML
+│       └── util.js                # Base64 دستی، تشخیص MIME، ارقام فارسی، escape XML
+├── scripts/
+│   ├── prepare-secrets.mjs       # ساخت secrets.js از متغیر محیطی لوکال
+│   └── secrets.example.js         # الگوی فایل کلید (tracked، دیپلوی نمی‌شود)
 ├── tests-js/                      # تست‌های Node (شبیه‌ساز sdk برای اجرای محلی)
 ├── package.json                   # اسکریپت‌ها + @tgcloud/cli (devDependency)
 ├── tgcloud.jsonc                  # پیکربندی پروژه (بدون Mini App)
-├── api/webhook.py                 # نسخه‌ی پایتون: وبهوک Vercel/Netlify
-├── bot/                           # نسخه‌ی پایتون: هسته‌ی ربات و ترسیم PNG
+├── api/webhook.py                 # نسخه‌ی پایتون: وب‌هوک Vercel/Netlify
+├── bot/                           # نسخه‌ی پایتون: هستهی ربات و ترسیم PNG
 ├── tests/                         # تست‌های پایتون
 └── assets/                        # نقشه‌ی مرجع F204 و خروجی نمونه
 ```
+
 
 ## استقرار روی Telegram Serverless (tgcloud)
 
@@ -77,32 +82,60 @@ npx tgcloud login           # توکن CLI Access را اینجا بچسبانی
 ```
 
 توکن و وضعیت محلی در `.tgcloud/` ذخیره می‌شود که در `.gitignore` است —
-**هرگز آن را کامیت نکنید.** پلتفرم خودش توکن ربات و وبهوک را مدیریت می‌کند؛
-نیازی به `TELEGRAM_BOT_TOKEN` یا تنظیم دستی وبهوک نیست.
+**هرگز آن را کامیت نکنید.** پلتفرم خودش توکن ربات و وب‌هوک را مدیریت می‌کند؛
+نیازی به `TELEGRAM_BOT_TOKEN` یا تنظیم دستی وب‌هوک نیست.
 
-### ۳) تنظیم کلید هوش مصنوعی (اختیاری)
+### ۳) اتصال کلید Gemini API (پیش‌فرض)
 
-محیط tgcloud **متغیر محیطی ندارد**؛ تنظیمات در `tgcloud/lib/config.js` هستند:
+ربات به صورت پیش‌فرض از **REST بومی Gemini** استفاده می‌کند: تصویر به صورت
+`inline_data` (Base64 دستی) همراه `systemInstruction` فرستاده می‌شود و با
+`responseMimeType: "application/json"` خروجی JSON ساخت‌یافته می‌گیرد. مدل پیش‌فرض
+`gemini-3.8-flash` است (ورودی تصویر + خروجی ساخت‌یافته پشتیبانی می‌شود) و در
+`tgcloud/lib/config.js` قابل تغییر است.
 
-```js
-export const config = {
-  aiApiKey: '',                            // خالی = حالت نمایشی (داده‌ی نمونه F204)
-  aiBaseUrl: 'https://api.openai.com/v1',
-  aiModel: 'gpt-4o-mini',
-};
+1. کلید را از [Google AI Studio](https://aistudio.google.com/apikey) بگیرید
+   (شکل معمول: `AIza...`).
+2. چون tgcloud **متغیر محیطی در زمان اجرا ندارد**، کلید هنگام استقرار از
+   متغیر محیطی **ماشین لوکال/CI** خوانده و در فایل `tgcloud/lib/secrets.js`
+   نوشته می‌شود. این فایل در `.gitignore` است ولی چون داخل `tgcloud/lib/`
+   قرار دارد، همراه کد دیپلوی می‌شود:
+
+```bash
+GEMINI_API_KEY=AIza... npm run deploy
+# اختیاری: مدل دیگری مثلاً gemini-2.5-flash
+GEMINI_API_KEY=AIza... GEMINI_MODEL=gemini-2.5-flash npm run deploy
+# در PowerShell:
+# $env:GEMINI_API_KEY = "AIza..."; npm run deploy
 ```
 
-هر API سازگار با OpenAI (OpenAI، Azure، OpenRouter و...) قابل استفاده است.
-اگر مخزن عمومی است، کلید واقعی را کامیت نکنید؛ از کلید محدودشده استفاده کنید
-یا کلید را فقط قبل از `push` به‌صورت محلی وارد کنید.
+`npm install` و `npm test` هم به صورت خودکار `secrets.js` را می‌سازند (بدون کلید =
+حالت نمایشی F204). اگر ترجیح می‌دهید دستی وارد کنید:
+
+```bash
+cp scripts/secrets.example.js tgcloud/lib/secrets.js
+# سپس aiApiKey را در secrets.js پر کنید — هرگز آن را کامیت نکنید
+```
+
+> 🔒 `secrets.js` در `.gitignore` قرار دارد؛ کلید هرگز وارد مخزن نمی‌شود. با دستور
+> `/ai` در ربات می‌توانید ببینید کلید تنظیم شده یا نه (فقط ۴ کاراکتر آخر،
+> بدون افشای کامل کلید).
+
+**حالت جایگزین:** اگر خواستید از API سازگار با OpenAI (OpenAI/Azure/OpenRouter
+یا حتی [لایه سازگار Gemini](https://ai.google.dev/gemini-api/docs/openai))
+استفاده کنید، در `tgcloud/lib/config.js` مقدار `provider` را به `'openai'` و
+`openai.baseUrl` / `openai.model` را تنظیم کنید. همان کلید در `secrets.js`
+به صورت `Authorization: Bearer ...` فرستاده می‌شود.
+
+> ⚠️ لایه‌ی سازگار Gemini ممکن است `response_format` ساده را نادیده
+> بگیرد؛ مسیر پیش‌فرض (REST بومی Gemini) برای JSON ساخت‌یافته مطمئن‌تر است.
 
 ### ۴) تست و استقرار
 
 ```bash
-npm test                    # ۲۵ تست واحد/سرتاسری، بدون نیاز به اکانت تلگرام
+npm test                    # ۲۹ تست واحد/سرتاسری، بدون نیاز به اکانت تلگرام
 npm run deploy              # = npx tgcloud push  (آپلود ماژول‌ها)
 npm run migrate             # = npx tgcloud migrate  (ساخته شدن جدول sessions)
-npm run webhook             # بررسی وبهوک تنظیم‌شده توسط پلتفرم
+npm run webhook             # بررسی وب‌هوک تنظیم‌شده توسط پلتفرم
 ```
 
 سپس به ربات `/start` بدهید و عکس اسکیس بفرستید. برای اجرای مستقیم یک هندلر
@@ -120,7 +153,7 @@ npx tgcloud run handlers/message '{ "chat": { "id": 123 }, "from": { "id": 123 }
 | محدودیت | راهکار در این پروژه |
 | --- | --- |
 | فقط JavaScript در V8 isolate؛ بدون npm، fs، `process`، `Buffer`، `atob`/`btoa` | Base64 دستی در `lib/util.js`، ترسیم شیت با رشته‌ی SVG، بدون هیچ پکیج خارجی |
-| بدون متغیر محیطی | `tgcloud/lib/config.js` |
+| بدون متغیر محیطی در زمان اجرا | تنظیمات عمومی در `tgcloud/lib/config.js`؛ کلید Gemini در `tgcloud/lib/secrets.js` (ساخته‌شده توسط `scripts/prepare-secrets.mjs` از `GEMINI_API_KEY` لوکال) |
 | فقط `sdk` و ماژول‌های خود پروژه قابل import هستند | `from 'sdk'` / `from 'sdk/db'` و ایمپورت‌های **نسبی با `.js`** (`../lib/bot.js`) |
 | حافظه‌ی پایدار لازم است | جدول `sessions` در SQLite داخلی (`sdk/db`) به جای حافظه‌ی نسخه‌ی پایتون |
 | دانلود عکس ارسالی | `api.getFileContent(file_id)` (تا ۲۰ مگابایت) — نیازی به توکن و `file_path` نیست |
@@ -129,12 +162,28 @@ npx tgcloud run handlers/message '{ "chat": { "id": 123 }, "from": { "id": 123 }
 | هندلرها تخت و هم نام نوع آپدیت | `handlers/message.js`, `handlers/callback_query.js` |
 | فقط فایل‌های `.js` داخل `schema.js`، `lib/`، `handlers/`، `endpoints/` دیپلوی می‌شوند | تست‌ها و ماک‌ها در `tests-js/` بیرون `tgcloud/` نگه داشته شده‌اند |
 
-نسخه‌ی tgcloud خروجی را به شکل **SVG** میفرستد (در تلگرام به صورت سند باز
-میشود و در صورت نیاز به PNG/PDF قابل تبدیل است)، چون در این محیط کتابخانه‌ی
-تصویریای مثل Pillow وجود ندارد. نسخه‌ی پایتون همان شیت را با Pillow به PNG
-تبدیل میکند.
+نسخه‌ی tgcloud خروجی را به شکل **SVG** می‌فرستد (در تلگرام به صورت سند باز
+می‌شود و در صورت نیاز به PNG/PDF قابل تبدیل است)، چون در این محیط کتابخانه‌ی
+تصویری مانند Pillow وجود ندارد. نسخه‌ی پایتون همان شیت را با Pillow به PNG
+تبدیل می‌کند. هر دو نسخه با یک کلید Gemini قابل استفاده‌اند (tgcloud به‌صورت بومی،
+پایتون از طریق لایه‌ی سازگار OpenAI).
 
 ## نسخه‌ی پایتون (اجرای محلی / Vercel)
+
+### استفاده از کلید Gemini در نسخه‌ی پایتون
+
+نسخه‌ی پایتون از API سازگار با OpenAI استفاده می‌کند، پس کافی است در `.env`
+لایه‌ی سازگار Gemini را تنظیم کنید (همان کلید `AIza...`):
+
+```bash
+AI_API_KEY=AIza...
+AI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
+AI_MODEL=gemini-3.8-flash
+```
+
+> اگر مدل شما `response_format: json_object` را نپذیرفت، از نسخه‌ی tgcloud
+> (REST بومی Gemini با `responseMimeType`) استفاده کنید یا `AI_MODEL` را به
+> مدل دیگری تغییر دهید.
 
 ```bash
 pip install -r requirements.txt
@@ -149,8 +198,8 @@ python -m bot.main       # Long Polling محلی
 curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://<your-domain>/api/webhook"
 ```
 
-در این نسخه سشنها در حافظهاند؛ برای استقرار چندنمونه‌ای، اینترفیس
-`SessionStore` را با Redis/Upstash KV پیادهسازی کنید (در نسخه‌ی tgcloud این
+در این نسخه سشن‌ها در حافظه‌اند؛ برای استقرار چندنمونه‌ای، اینترفیس
+`SessionStore` را با Redis/Upstash KV پیاده‌سازی کنید (در نسخه‌ی tgcloud این
 مشکل با دیتابیس داخلی حل شده است).
 
 ## تست
@@ -166,6 +215,6 @@ python -m pytest tests/ -q  # تست‌های پایتون
   مدول استاندارد ۶۰۰، ارتفاع زمینی ۹۰۰ / شروع دیواری ۱۴۰۰ / یونیت بلند ۲۱۰۰،
   سینک زیر پنجره، حداقل فاصله‌ی ۳۰۰ میلیمتری سینک تا اجاق، هود بالای اجاق،
   نمایش مثلث کاری (سینک–اجاق–یخچال) و خط مقیاس (Scale Bar).
-- **چیدمانهای پشتیبانی‌شده:** L، U، I (مستقیم)، موازی (Parallel).
-- **نقشه‌ی مرجع:** `assets/sample_F204.jpg` مبنای داده‌ی نمایشی و تست هاست.
+- **چیدمان‌های پشتیبانی‌شده:** L، U، I (مستقیم)، موازی (Parallel).
+- **نقشه‌ی مرجع:** `assets/sample_F204.jpg` مبنای داده‌ی نمایشی و تست‌هاست.
 - **منبع رسمی:** [core.telegram.org/bots/serverless](https://core.telegram.org/bots/serverless)
