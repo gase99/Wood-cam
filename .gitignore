@@ -4,3 +4,8 @@ __pycache__/
 .venv/
 .pytest_cache/
 .DS_Store
+
+# Telegram Serverless CLI — machine-local credentials & state. NEVER commit.
+.tgcloud/
+node_modules/
+dist/

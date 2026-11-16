@@ -1,0 +1,16 @@
+{
+  "name": "wood-cam",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests-js/*.test.js",
+    "deploy": "tgcloud push",
+    "status": "tgcloud status",
+    "run": "tgcloud run",
+    "migrate": "tgcloud migrate",
+    "webhook": "tgcloud webhook"
+  },
+  "devDependencies": {
+    "@tgcloud/cli": "^0.2.0"
+  }
+}

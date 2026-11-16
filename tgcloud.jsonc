@@ -1,0 +1,8 @@
+{
+  "$schema": "./node_modules/@tgcloud/cli/schema/tgcloud.json",
+  // Wood-cam is a bot-only project: no Mini App / static front-end is hosted.
+  // To host a Mini App later, set "source" to its build output folder:
+  // "static": {
+  //   "source": "dist"
+  // }
+}
